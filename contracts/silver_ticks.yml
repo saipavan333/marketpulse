@@ -1,0 +1,24 @@
+# Data contract: silver/ticks
+# Consumers: gold.ohlcv_1m, dashboard, quant research
+dataset: silver/ticks
+owner: data-platform
+description: >
+  Validated, deduplicated top-of-book quotes. One row per (symbol, venue, seq).
+  Guaranteed positive, uncrossed prices and parseable event timestamps.
+
+columns:
+  - { name: symbol,     dtype: string,    not_null: true }
+  - { name: venue,      dtype: string,    not_null: true,
+      accepted_values: [NYSE, NASDAQ, ARCA, IEX] }
+  - { name: seq,        dtype: bigint,    not_null: true }
+  - { name: event_ts,   dtype: timestamp, not_null: true }
+  - { name: bid,        dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: ask,        dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: mid,        dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: spread_bps, dtype: double,    not_null: true, min_value: 0.0, max_value: 500.0,
+      severity: warn }
+
+checks:
+  min_rows: 1
+  unique_key: [symbol, venue, seq]
+  severity: error

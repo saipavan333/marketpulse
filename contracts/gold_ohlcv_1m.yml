@@ -1,0 +1,22 @@
+# Data contract: gold/ohlcv_1m
+# Consumers: dbt marts, Streamlit dashboard, downstream quant systems
+dataset: gold/ohlcv_1m
+owner: data-platform
+description: >
+  One-minute OHLCV bars per symbol with VWAP and average spread. The
+  high/low envelope must contain open and close (sanity invariant).
+
+columns:
+  - { name: symbol,      dtype: string,    not_null: true }
+  - { name: minute,      dtype: timestamp, not_null: true }
+  - { name: open,        dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: high,        dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: low,         dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: close,       dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: volume,      dtype: bigint,    not_null: true, min_value: 0 }
+  - { name: trade_count, dtype: bigint,    not_null: true, min_value: 0 }
+
+checks:
+  min_rows: 1
+  unique_key: [symbol, minute]
+  severity: error

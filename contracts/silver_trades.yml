@@ -1,0 +1,24 @@
+# Data contract: silver/trades
+# Consumers: gold.ohlcv_1m (volume/VWAP), gold.symbol_risk_daily, surveillance
+dataset: silver/trades
+owner: data-platform
+description: >
+  Validated, deduplicated trade prints. One row per trade_id. Guaranteed
+  positive price and quantity; notional precomputed.
+
+columns:
+  - { name: trade_id,  dtype: string,    not_null: true, unique: true }
+  - { name: symbol,    dtype: string,    not_null: true }
+  - { name: venue,     dtype: string,    not_null: true,
+      accepted_values: [NYSE, NASDAQ, ARCA, IEX] }
+  - { name: event_ts,  dtype: timestamp, not_null: true }
+  - { name: price,     dtype: double,    not_null: true, min_value: 0.0001 }
+  - { name: qty,       dtype: int,       not_null: true, min_value: 1 }
+  - { name: side,      dtype: string,    not_null: true, accepted_values: [BUY, SELL] }
+  - { name: order_type, dtype: string,   not_null: true, accepted_values: [MARKET, LIMIT] }
+  - { name: notional,  dtype: double,    not_null: true, min_value: 0.0001 }
+
+checks:
+  min_rows: 1
+  unique_key: [trade_id]
+  severity: error
