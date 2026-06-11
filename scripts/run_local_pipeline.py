@@ -163,7 +163,9 @@ def main() -> int:
         FROM gold.symbol_risk_daily ORDER BY symbol
         """
     ).fetchall()
-    print(f"  {'symbol':<8}{'close':>10}{'ret%':>8}{'vol%':>8}{'maxDD%':>9}{'volume':>12}{'trades':>9}")
+    print(
+        f"  {'symbol':<8}{'close':>10}{'ret%':>8}{'vol%':>8}{'maxDD%':>9}{'volume':>12}{'trades':>9}"
+    )
     for r in rows:
         print(f"  {r[0]:<8}{r[1]:>10}{r[2]:>8}{r[3]:>8}{r[4]:>9}{r[5]:>12,}{r[6]:>9,}")
     dq_pass = con.execute(

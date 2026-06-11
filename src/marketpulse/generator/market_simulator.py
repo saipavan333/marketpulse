@@ -53,9 +53,7 @@ class MarketSimulator:
             raise ValueError(f"Unknown symbols: {unknown}. Choose from {list(SYMBOL_UNIVERSE)}")
         self._rng = random.Random(self.config.seed)
         self._clock = self.config.start or datetime(2026, 6, 11, 13, 30, tzinfo=timezone.utc)
-        self._prices: dict[str, float] = {
-            s: SYMBOL_UNIVERSE[s][2] for s in self.config.symbols
-        }
+        self._prices: dict[str, float] = {s: SYMBOL_UNIVERSE[s][2] for s in self.config.symbols}
         self._seq: dict[str, int] = dict.fromkeys(self.config.symbols, 0)
         self._recent: list[dict] = []  # buffer used to emit duplicates
 

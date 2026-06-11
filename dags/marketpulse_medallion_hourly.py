@@ -112,9 +112,7 @@ with DAG(
 
     dbt_build = BashOperator(
         task_id="dbt_build",
-        bash_command=(
-            f"cd {DBT_DIR} && dbt deps --profiles-dir . && dbt build --profiles-dir ."
-        ),
+        bash_command=(f"cd {DBT_DIR} && dbt deps --profiles-dir . && dbt build --profiles-dir ."),
     )
 
     silver_task >> [dq_silver_ticks, dq_silver_trades] >> gold_task

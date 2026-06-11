@@ -74,8 +74,10 @@ def dq(
     df = read_table(spark, layer, table)
     results = run_contract(df, load_contract(contract))
     run_id = persist_results(results)
-    console.print(f"DQ run [bold]{run_id}[/bold]: "
-                  f"{sum(r.passed for r in results)}/{len(results)} checks passed")
+    console.print(
+        f"DQ run [bold]{run_id}[/bold]: "
+        f"{sum(r.passed for r in results)}/{len(results)} checks passed"
+    )
     enforce(results)  # raises -> exit 1 if error-severity failures
 
 

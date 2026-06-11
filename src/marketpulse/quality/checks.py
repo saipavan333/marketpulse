@@ -60,28 +60,44 @@ def run_contract(df: DataFrame, contract: Contract) -> list[CheckResult]:
     checks = contract.checks
     if checks.min_rows is not None:
         results.append(
-            CheckResult(ds, "min_rows", checks.severity, total >= checks.min_rows,
-                        str(total), f">={checks.min_rows}")
+            CheckResult(
+                ds,
+                "min_rows",
+                checks.severity,
+                total >= checks.min_rows,
+                str(total),
+                f">={checks.min_rows}",
+            )
         )
     if checks.unique_key:
-        dupes = (
-            df.groupBy(*checks.unique_key).count().where(F.col("count") > 1).count()
-        )
+        dupes = df.groupBy(*checks.unique_key).count().where(F.col("count") > 1).count()
         results.append(
-            CheckResult(ds, f"unique_key({','.join(checks.unique_key)})",
-                        checks.severity, dupes == 0, f"{dupes} duplicate keys", "0")
+            CheckResult(
+                ds,
+                f"unique_key({','.join(checks.unique_key)})",
+                checks.severity,
+                dupes == 0,
+                f"{dupes} duplicate keys",
+                "0",
+            )
         )
     if checks.freshness_column and checks.freshness_max_age_minutes:
         max_ts = df.agg(F.max(checks.freshness_column)).collect()[0][0]
         if max_ts is None:
             results.append(CheckResult(ds, "freshness", checks.severity, False, "no data", ""))
         else:
-            age_min = (datetime.now(timezone.utc) - max_ts.replace(tzinfo=timezone.utc)).total_seconds() / 60
+            age_min = (
+                datetime.now(timezone.utc) - max_ts.replace(tzinfo=timezone.utc)
+            ).total_seconds() / 60
             results.append(
-                CheckResult(ds, "freshness", checks.severity,
-                            age_min <= checks.freshness_max_age_minutes,
-                            f"{age_min:.1f} min old",
-                            f"<={checks.freshness_max_age_minutes} min")
+                CheckResult(
+                    ds,
+                    "freshness",
+                    checks.severity,
+                    age_min <= checks.freshness_max_age_minutes,
+                    f"{age_min:.1f} min old",
+                    f"<={checks.freshness_max_age_minutes} min",
+                )
             )
 
     # ----------------------------------------------------------- column level
@@ -95,29 +111,43 @@ def run_contract(df: DataFrame, contract: Contract) -> list[CheckResult]:
         if col.dtype:
             actual = dict(df.dtypes).get(col.name, "?")
             results.append(
-                CheckResult(ds, f"{col.name}.dtype", col.severity, actual == col.dtype,
-                            actual, col.dtype)
+                CheckResult(
+                    ds, f"{col.name}.dtype", col.severity, actual == col.dtype, actual, col.dtype
+                )
             )
         if col.not_null:
             nulls = df.where(F.col(col.name).isNull()).count()
             results.append(
-                CheckResult(ds, f"{col.name}.not_null", col.severity, nulls == 0,
-                            f"{nulls} nulls", "0")
+                CheckResult(
+                    ds, f"{col.name}.not_null", col.severity, nulls == 0, f"{nulls} nulls", "0"
+                )
             )
         if col.unique:
             distinct = df.select(col.name).distinct().count()
             non_null = df.where(F.col(col.name).isNotNull()).count()
             results.append(
-                CheckResult(ds, f"{col.name}.unique", col.severity, distinct == non_null,
-                            f"{non_null - distinct} duplicates", "0")
+                CheckResult(
+                    ds,
+                    f"{col.name}.unique",
+                    col.severity,
+                    distinct == non_null,
+                    f"{non_null - distinct} duplicates",
+                    "0",
+                )
             )
         if col.accepted_values is not None:
             bad = df.where(
                 F.col(col.name).isNotNull() & ~F.col(col.name).isin(col.accepted_values)
             ).count()
             results.append(
-                CheckResult(ds, f"{col.name}.accepted_values", col.severity, bad == 0,
-                            f"{bad} unexpected", str(col.accepted_values))
+                CheckResult(
+                    ds,
+                    f"{col.name}.accepted_values",
+                    col.severity,
+                    bad == 0,
+                    f"{bad} unexpected",
+                    str(col.accepted_values),
+                )
             )
         if col.min_value is not None or col.max_value is not None:
             cond = F.lit(False)
@@ -127,9 +157,14 @@ def run_contract(df: DataFrame, contract: Contract) -> list[CheckResult]:
                 cond = cond | (F.col(col.name) > col.max_value)
             out_of_range = df.where(F.col(col.name).isNotNull() & cond).count()
             results.append(
-                CheckResult(ds, f"{col.name}.range", col.severity, out_of_range == 0,
-                            f"{out_of_range} out of range",
-                            f"[{col.min_value}, {col.max_value}]")
+                CheckResult(
+                    ds,
+                    f"{col.name}.range",
+                    col.severity,
+                    out_of_range == 0,
+                    f"{out_of_range} out of range",
+                    f"[{col.min_value}, {col.max_value}]",
+                )
             )
     return results
 
@@ -139,9 +174,14 @@ def enforce(results: list[CheckResult]) -> None:
     failed_errors = [r for r in results if not r.passed and r.severity == "error"]
     for r in results:
         level = logging.INFO if r.passed else logging.ERROR
-        logger.log(level, "[DQ] %-45s %-5s observed=%s expected=%s",
-                   f"{r.dataset}:{r.check_name}", "PASS" if r.passed else "FAIL",
-                   r.observed, r.threshold)
+        logger.log(
+            level,
+            "[DQ] %-45s %-5s observed=%s expected=%s",
+            f"{r.dataset}:{r.check_name}",
+            "PASS" if r.passed else "FAIL",
+            r.observed,
+            r.threshold,
+        )
     if failed_errors:
         names = ", ".join(f"{r.dataset}:{r.check_name}" for r in failed_errors)
         raise ContractViolationError(f"{len(failed_errors)} contract check(s) failed: {names}")

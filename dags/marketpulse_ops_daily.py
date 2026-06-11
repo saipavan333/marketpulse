@@ -1,11 +1,11 @@
 """Daily operations DAG: quarantine triage report + lake maintenance.
 
-    - quarantine_report: counts quarantined rows by reason for the last day
-      and pushes a summary to the pipeline ledger (ops schema). In prod
-      this feeds an alert if quarantine-rate > 1% (data incident).
-    - optimize_lake: with Delta enabled, compacts small files + vacuums
-      old snapshots — the unglamorous work that keeps query latency flat
-      as the lake grows.
+- quarantine_report: counts quarantined rows by reason for the last day
+  and pushes a summary to the pipeline ledger (ops schema). In prod
+  this feeds an alert if quarantine-rate > 1% (data incident).
+- optimize_lake: with Delta enabled, compacts small files + vacuums
+  old snapshots — the unglamorous work that keeps query latency flat
+  as the lake grows.
 """
 
 from __future__ import annotations
@@ -37,9 +37,9 @@ def _quarantine_report(**_):
     print(f"Quarantine summary: {summary}")
 
     # Alert-worthy? Compare against clean volumes.
-    clean = read_table(spark, "silver", "ticks").count() + read_table(
-        spark, "silver", "trades"
-    ).count()
+    clean = (
+        read_table(spark, "silver", "ticks").count() + read_table(spark, "silver", "trades").count()
+    )
     dirty = sum(sum(v.values()) for v in summary.values())
     rate = dirty / max(clean + dirty, 1)
     print(f"Quarantine rate: {rate:.3%}")

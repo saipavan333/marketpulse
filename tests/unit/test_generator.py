@@ -66,9 +66,7 @@ def test_anomalies_are_injected():
     trades = [e for e in events if e["event_type"] == "trade"]
     ticks = [e for e in events if e["event_type"] == "tick"]
 
-    has_null_price = any(t["price"] is None for t in trades) or any(
-        t["bid"] is None for t in ticks
-    )
+    has_null_price = any(t["price"] is None for t in trades) or any(t["bid"] is None for t in ticks)
     has_bad_qty = any(t["qty"] is not None and t["qty"] <= 0 for t in trades)
     ids = [t["trade_id"] for t in trades]
     seqs = [(t["symbol"], t["seq"]) for t in ticks]

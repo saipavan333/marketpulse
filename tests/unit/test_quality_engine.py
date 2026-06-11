@@ -83,9 +83,7 @@ def test_enforce_tolerates_warn_severity(df):
 
 
 def test_clean_dataframe_passes_everything(spark):
-    clean = spark.createDataFrame(
-        [("AAPL", 1.0), ("GS", 2.0)], "symbol string, price double"
-    )
+    clean = spark.createDataFrame([("AAPL", 1.0), ("GS", 2.0)], "symbol string, price double")
     c = _contract(
         columns=[
             {"name": "symbol", "not_null": True, "unique": True},

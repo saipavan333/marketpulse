@@ -65,11 +65,11 @@ class MarketDataProducer:
         settings = get_settings()
         eps = events_per_sec or settings.generator_events_per_sec
         sim = MarketSimulator(
-            SimulatorConfig(seed=settings.generator_seed, anomaly_rate=settings.generator_anomaly_rate)
+            SimulatorConfig(
+                seed=settings.generator_seed, anomaly_rate=settings.generator_anomaly_rate
+            )
         )
-        logger.info(
-            "Producing ~%s events/sec for %ss to %s", eps, duration_seconds, self.bootstrap
-        )
+        logger.info("Producing ~%s events/sec for %ss to %s", eps, duration_seconds, self.bootstrap)
         deadline = time.monotonic() + duration_seconds
         while time.monotonic() < deadline:
             batch_start = time.monotonic()

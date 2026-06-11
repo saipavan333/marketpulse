@@ -25,11 +25,16 @@ def pipeline_run(tmp_path_factory):
         [
             sys.executable,
             str(REPO_ROOT / "scripts" / "run_local_pipeline.py"),
-            "--symbols", "AAPL,GS",
-            "--minutes", "8",
-            "--events-per-minute", "250",
-            "--seed", "123",
-            "--workdir", str(workdir),
+            "--symbols",
+            "AAPL,GS",
+            "--minutes",
+            "8",
+            "--events-per-minute",
+            "250",
+            "--seed",
+            "123",
+            "--workdir",
+            str(workdir),
         ],
         capture_output=True,
         text=True,
@@ -63,7 +68,10 @@ def test_warehouse_contents(pipeline_run):
 
     con = duckdb.connect(str(workdir / "marketpulse.duckdb"), read_only=True)
     try:
-        symbols = {r[0] for r in con.execute("SELECT DISTINCT symbol FROM gold.symbol_risk_daily").fetchall()}
+        symbols = {
+            r[0]
+            for r in con.execute("SELECT DISTINCT symbol FROM gold.symbol_risk_daily").fetchall()
+        }
         assert symbols == {"AAPL", "GS"}
 
         bars = con.execute("SELECT COUNT(*) FROM gold.ohlcv_1m").fetchone()[0]
@@ -101,11 +109,16 @@ def test_pipeline_is_idempotent(pipeline_run):
         [
             sys.executable,
             str(REPO_ROOT / "scripts" / "run_local_pipeline.py"),
-            "--symbols", "AAPL,GS",
-            "--minutes", "8",
-            "--events-per-minute", "250",
-            "--seed", "123",
-            "--workdir", str(workdir),
+            "--symbols",
+            "AAPL,GS",
+            "--minutes",
+            "8",
+            "--events-per-minute",
+            "250",
+            "--seed",
+            "123",
+            "--workdir",
+            str(workdir),
         ],
         capture_output=True,
         text=True,

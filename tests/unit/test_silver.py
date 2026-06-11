@@ -50,8 +50,12 @@ def test_quarantine_reasons_are_known(bronze_events):
 
     _, bad_ticks = build_silver_ticks(bronze_events)
     _, bad_trades = build_silver_trades(bronze_events)
-    tick_reasons = {r["quarantine_reason"] for r in bad_ticks.select("quarantine_reason").distinct().collect()}
-    trade_reasons = {r["quarantine_reason"] for r in bad_trades.select("quarantine_reason").distinct().collect()}
+    tick_reasons = {
+        r["quarantine_reason"] for r in bad_ticks.select("quarantine_reason").distinct().collect()
+    }
+    trade_reasons = {
+        r["quarantine_reason"] for r in bad_trades.select("quarantine_reason").distinct().collect()
+    }
     assert tick_reasons <= set(tick_rules())
     assert trade_reasons <= set(trade_rules())
 

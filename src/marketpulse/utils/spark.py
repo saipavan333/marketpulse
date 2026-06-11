@@ -40,12 +40,11 @@ def build_spark(app_name: str, local: bool | None = None, settings: Settings | N
     builder = builder.master("local[*]") if is_local else builder.master(settings.spark_master)
 
     if settings.delta_enabled:
-        builder = (
-            builder.config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-            .config(
-                "spark.sql.catalog.spark_catalog",
-                "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-            )
+        builder = builder.config(
+            "spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension"
+        ).config(
+            "spark.sql.catalog.spark_catalog",
+            "org.apache.spark.sql.delta.catalog.DeltaCatalog",
         )
 
     if settings.lake_root.startswith("s3a://"):
