@@ -3,7 +3,8 @@
 # Contains: marketpulse package, Spark client (PySpark), dbt, Streamlit.
 # Used by: `app` (jobs/CLI) and `dashboard` services.
 # ============================================================================
-FROM python:3.10-slim AS base
+# bookworm pinned: trixie-based python:3.10-slim dropped openjdk-17 from apt
+FROM python:3.10-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
