@@ -4,7 +4,7 @@
 # Used by: `app` (jobs/CLI) and `dashboard` services.
 # ============================================================================
 # bookworm pinned: trixie-based python:3.10-slim dropped openjdk-17 from apt
-FROM python:3.10-slim-bookworm AS base
+FROM python:3.14-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
