@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data & lake artifacts (never commit data)
+data/
+lake/
+warehouse/*.duckdb
+*.parquet
+*.jsonl
+
+# dbt
+dbt/marketpulse_dbt/target/
+dbt/marketpulse_dbt/dbt_packages/
+dbt/marketpulse_dbt/logs/
+
+# Airflow
+airflow/logs/
+airflow/*.pid
+airflow/*.db
+
+# Secrets & env
+.env
+*.pem
+*.key
+
+# Terraform
+terraform/**/.terraform/
+terraform/**/*.tfstate*
+terraform/**/.terraform.lock.hcl
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Spark
+spark-warehouse/
+derby.log
+metastore_db/
+checkpoints/

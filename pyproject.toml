@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marketpulse"
+version = "1.0.0"
+description = "Production-grade real-time market data lakehouse: Kafka -> Spark Structured Streaming -> Delta Lake -> dbt -> Airflow, with contract-driven data quality and full CI/CD."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "U E Sai Pavan Vamshi Krishna" }]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "pydantic>=2.5",
+    "pydantic-settings>=2.1",
+    "pyyaml>=6.0",
+    "typer>=0.9",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+spark = ["pyspark==3.5.1"]
+delta = ["delta-spark==3.2.0"]
+kafka = ["confluent-kafka>=2.3"]
+warehouse = ["duckdb>=0.10", "pandas>=2.0", "psycopg2-binary>=2.9", "sqlalchemy>=2.0"]
+dashboard = ["streamlit>=1.30", "plotly>=5.18", "pandas>=2.0", "sqlalchemy>=2.0", "psycopg2-binary>=2.9"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+    "types-PyYAML",
+    "pandas>=2.0",
+    "duckdb>=0.10",
+]
+
+[project.scripts]
+marketpulse = "marketpulse.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "N812"]  # N812: `from pyspark.sql import functions as F` is the Spark convention
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "spark: tests that require a local Spark session (slower)",
+    "integration: end-to-end pipeline tests",
+]

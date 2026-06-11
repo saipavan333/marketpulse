@@ -1,0 +1,242 @@
+# ============================================================================
+# MarketPulse — full local platform
+#
+#   kafka          message broker (KRaft mode, no ZooKeeper)
+#   minio          S3-compatible object store (the "data lake")
+#   spark-master   Spark standalone cluster (1 master)
+#   spark-worker   Spark standalone cluster (1 worker, scale with --scale)
+#   postgres       warehouse (serving layer) + Airflow metadata DB
+#   airflow-*      orchestrator (LocalExecutor)
+#   app            MarketPulse code: producer, jobs, dbt, CLI
+#   dashboard      Streamlit analytics dashboard
+# ============================================================================
+name: marketpulse
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    MP_ENV: docker
+    MP_KAFKA_BOOTSTRAP: kafka:9092
+    MP_LAKE_ROOT: s3a://marketpulse-lake
+    MP_S3_ENDPOINT: http://minio:9000
+    MP_S3_ACCESS_KEY: minioadmin
+    MP_S3_SECRET_KEY: minioadmin
+    MP_DELTA_ENABLED: "true"
+    MP_WAREHOUSE_URL: postgresql://marketpulse:marketpulse@postgres:5432/marketpulse
+    MP_SPARK_MASTER: spark://spark-master:7077
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./dbt:/opt/airflow/dbt
+    - ./contracts:/opt/airflow/contracts
+    - airflow-logs:/opt/airflow/logs
+  depends_on: &airflow-common-depends
+    postgres:
+      condition: service_healthy
+
+services:
+  # ------------------------------------------------------------------ kafka --
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: mp-kafka
+    ports:
+      - "9092:9092"   # internal listener
+      - "29092:29092" # host listener for local tools
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 24
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-init:
+    image: apache/kafka:3.8.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic market.ticks.v1  --partitions 6 --replication-factor 1 --config retention.ms=86400000
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic market.trades.v1 --partitions 6 --replication-factor 1 --config retention.ms=86400000
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic market.dlq.v1    --partitions 1 --replication-factor 1
+      echo 'Topics ready:' && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+      "
+
+  # ------------------------------------------------------------------ minio --
+  minio:
+    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+    container_name: mp-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-06-12T14-34-03Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/marketpulse-lake &&
+      mc mb --ignore-existing local/marketpulse-checkpoints &&
+      echo 'Buckets ready' && mc ls local
+      "
+
+  # ------------------------------------------------------------------ spark --
+  spark-master:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    container_name: mp-spark-master
+    environment:
+      SPARK_MODE: master
+    ports:
+      - "8081:8080"  # Spark master UI
+      - "7077:7077"
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 2G
+      SPARK_WORKER_CORES: "2"
+    depends_on:
+      - spark-master
+
+  # --------------------------------------------------------------- postgres --
+  postgres:
+    image: postgres:16-alpine
+    container_name: mp-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-warehouse.sql:/docker-entrypoint-initdb.d/init-warehouse.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------- airflow --
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username "$${_AIRFLOW_WWW_USER_USERNAME:-admin}" \
+          --password "$${_AIRFLOW_WWW_USER_PASSWORD:-admin}" \
+          --firstname Market --lastname Pulse --role Admin --email admin@marketpulse.local || true
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-admin}
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      <<: *airflow-common-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      <<: *airflow-common-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  # -------------------------------------------------------------------- app --
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: mp-app
+    env_file: .env
+    environment:
+      MP_ENV: docker
+    volumes:
+      - ./src:/app/src
+      - ./dbt:/app/dbt
+      - ./contracts:/app/contracts
+      - ./scripts:/app/scripts
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: ["sleep", "infinity"]  # exec into it: docker compose exec app bash
+
+  # -------------------------------------------------------------- dashboard --
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: mp-dashboard
+    environment:
+      MP_WAREHOUSE_URL: postgresql://marketpulse:marketpulse@postgres:5432/marketpulse
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["streamlit", "run", "dashboards/app.py", "--server.address=0.0.0.0"]
+    volumes:
+      - ./dashboards:/app/dashboards
+
+volumes:
+  minio-data:
+  postgres-data:
+  airflow-logs:
