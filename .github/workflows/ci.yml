@@ -1,0 +1,112 @@
+# ============================================================================
+# CI: every push / PR runs lint -> types -> unit tests -> TRUE end-to-end
+# pipeline (simulate -> bronze -> silver -> contracts -> gold -> warehouse)
+# -> dbt compile check. Images build on main as a smoke test.
+# ============================================================================
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & static types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install tooling
+        run: pip install ruff mypy pydantic pydantic-settings types-PyYAML
+      - name: Ruff lint
+        run: ruff check src tests dags scripts
+      - name: Ruff format check
+        run: ruff format --check src tests dags scripts
+      - name: Mypy
+        run: mypy src
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install package
+        run: pip install -e ".[dev,spark,warehouse]"
+      - name: Run unit tests with coverage
+        run: pytest tests/unit -v --cov=marketpulse --cov-report=xml --cov-report=term
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  integration:
+    name: End-to-end pipeline
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install package
+        run: pip install -e ".[dev,spark,warehouse]"
+      - name: Run full local pipeline (simulate -> lake -> contracts -> warehouse)
+        run: python scripts/run_local_pipeline.py --symbols AAPL,GS --minutes 10 --events-per-minute 300
+      - name: Run integration test suite
+        run: pytest tests/integration -v
+
+  dbt:
+    name: dbt compile check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install dbt
+        run: pip install dbt-core==1.8.* dbt-postgres==1.8.*
+      - name: dbt deps + parse (no warehouse connection needed)
+        working-directory: dbt/marketpulse_dbt
+        run: |
+          dbt deps --profiles-dir .
+          dbt parse --profiles-dir .
+
+  docker-build:
+    name: Docker image smoke build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [lint, unit-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build app image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
