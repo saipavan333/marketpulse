@@ -1,0 +1,15 @@
+# dbt connection profiles.
+# Local-dev credentials only — production credentials belong in env vars /
+# a secrets manager, never in git (see docs/runbook.md).
+marketpulse:
+  target: docker
+  outputs:
+    docker:
+      type: postgres
+      host: "{{ env_var('MP_WAREHOUSE_HOST', 'postgres') }}"
+      port: 5432
+      user: marketpulse
+      password: "{{ env_var('MP_WAREHOUSE_PASSWORD', 'marketpulse') }}"
+      dbname: marketpulse
+      schema: analytics
+      threads: 4

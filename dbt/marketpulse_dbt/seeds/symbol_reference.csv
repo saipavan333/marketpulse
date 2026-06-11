@@ -1,0 +1,11 @@
+symbol,company_name,sector,base_price,annualised_vol
+AAPL,Apple Inc.,Technology,232.0,0.25
+MSFT,Microsoft Corp.,Technology,451.0,0.22
+NVDA,NVIDIA Corp.,Technology,138.0,0.45
+AMZN,Amazon.com Inc.,Consumer,215.0,0.30
+GOOG,Alphabet Inc.,Technology,196.0,0.26
+META,Meta Platforms,Technology,605.0,0.32
+TSLA,Tesla Inc.,Automotive,342.0,0.55
+GS,Goldman Sachs Group,Financials,612.0,0.28
+JPM,JPMorgan Chase & Co.,Financials,265.0,0.24
+MS,Morgan Stanley,Financials,138.0,0.27

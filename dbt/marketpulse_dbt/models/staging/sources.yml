@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: gold
+    description: >
+      Gold-layer aggregates produced by MarketPulse Spark jobs and loaded
+      into the warehouse by the load-warehouse task. Upstream guarantees
+      are enforced by data contracts (contracts/gold_ohlcv_1m.yml).
+    database: marketpulse
+    schema: gold
+    freshness:
+      warn_after: { count: 2, period: hour }
+      error_after: { count: 24, period: hour }
+    loaded_at_field: minute
+    tables:
+      - name: ohlcv_1m
+        description: One-minute OHLCV bars per symbol with VWAP and spread.
+      - name: symbol_risk_daily
+        description: Daily per-symbol risk metrics (vol, VaR, drawdown).
+        freshness: null

@@ -1,0 +1,30 @@
+name: marketpulse_dbt
+version: "1.0.0"
+config-version: 2
+profile: marketpulse
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  marketpulse_dbt:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts
+
+seeds:
+  marketpulse_dbt:
+    +schema: reference
+    symbol_reference:
+      +column_types:
+        symbol: varchar
+        company_name: varchar
+        sector: varchar
+        base_price: float
+        annualised_vol: float

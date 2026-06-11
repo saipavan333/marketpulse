@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: dim_symbol
+    description: Symbol dimension joining seed reference data with observed stats.
+    columns:
+      - name: symbol
+        description: Ticker symbol (primary key).
+        tests: [unique, not_null]
+      - name: sector
+        tests:
+          - not_null
+          - accepted_values:
+              values: [Technology, Financials, Consumer, Automotive]
+
+  - name: fct_daily_symbol_performance
+    description: One row per symbol per trading day with return/risk/liquidity metrics.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [symbol, trade_date]
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_symbol')
+              field: symbol
+      - name: trade_date
+        tests: [not_null]
+      - name: day_close
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: false
+      - name: vol_bucket
+        tests:
+          - accepted_values:
+              values: [LOW, MEDIUM, HIGH]
+
+  - name: fct_intraday_liquidity
+    description: 30-minute liquidity buckets per symbol per day.
+    columns:
+      - name: bucket_volume
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
